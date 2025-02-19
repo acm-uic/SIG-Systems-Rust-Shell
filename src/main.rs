@@ -2,14 +2,14 @@ mod lexer;
 mod parser;
 mod safe_wrappers;
 
-use safe_wrappers::{fork, exec, wait, ForkReturn, WaitReturn};
+use safe_wrappers::{exec, fork, wait, ForkReturn};
 
 #[cfg(test)]
 mod tests;
 
 use std::io::{self, Write};
 
-use parser::{Arg, Command};
+use parser::Command;
 
 fn main() {
     // Input REPL
@@ -28,31 +28,29 @@ fn main() {
         }
 
         let command = Command::parse(input).unwrap();
-        run_command(&command).expect("run_command shouldn't return error");
-        println!("{command:#?}");
+        match run_command(&command) {
+            Ok(_) => (),
+            Err(e) => eprintln!("{}", e),
+        }
     }
 }
 
-fn run_command(cmd: &Command) -> io::Result<()> {
-    match fork()? {
+use crate::safe_wrappers::WaitStatus;
+fn run_command(cmd: &Command) -> io::Result<WaitStatus> {
+    match fork() {
         ForkReturn::Child => {
-            let args = cmd.argv.iter().filter_map(|arg| {
-                if let Arg::Word(w) = arg { Some(w) } else { None }
-            }).collect::<Vec<_>>();
+            let args: Vec<String> = cmd.args()?;
 
             if args.len() == 0 {
-                return Ok(())
+                return Ok(WaitStatus::Exited(0));
             }
 
-            if let Err(e) = exec(args[0], args.as_slice()) {
-                eprintln!("Error running {}: {e}", args[0]);
+            if let Err(e) = exec(&args[0], &args.as_slice()) {
+                Err(io::Error::from(e))
             } else {
                 unsafe { std::hint::unreachable_unchecked() };
             }
-        },
-        ForkReturn::Parent(_) => {
-            wait();
         }
+        ForkReturn::Parent(_) => Ok(wait()?.into()),
     }
-    Ok(())
 }

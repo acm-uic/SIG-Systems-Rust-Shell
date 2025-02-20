@@ -9,7 +9,7 @@ mod tests;
 
 use std::io::{self, Write};
 
-use parser::Command;
+use parser::{Arg, Command};
 
 fn main() {
     // Input REPL
@@ -39,7 +39,17 @@ use crate::safe_wrappers::WaitStatus;
 fn run_command(cmd: &Command) -> io::Result<WaitStatus> {
     match fork() {
         ForkReturn::Child => {
-            let args: Vec<String> = cmd.args()?;
+            let args = cmd
+                .argv
+                .iter()
+                .filter_map(|arg| {
+                    if let Arg::Word(w) = arg {
+                        Some(w)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
 
             if args.len() == 0 {
                 return Ok(WaitStatus::Exited(0));

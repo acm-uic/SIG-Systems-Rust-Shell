@@ -1,5 +1,4 @@
 use core::panic;
-use std::io::Result as IOResult;
 use std::path::PathBuf;
 use std::{hint::unreachable_unchecked, iter::Peekable};
 
@@ -221,18 +220,5 @@ impl Command {
         let lexer = Lexer::new(input.as_ref());
         let mut parser = Parser::new(lexer);
         parser.parse_command()
-    }
-
-    pub fn args(&self) -> IOResult<Vec<String>> {
-        use crate::safe_wrappers::getenv;
-        let mut args = Vec::new();
-        for arg in &self.argv {
-            match arg {
-                Arg::Word(w) => args.push(w.clone()),
-                Arg::Variable(var_id) => args.push(getenv(var_id)?),
-                Arg::Subshell(_cmd) => todo!(),
-            }
-        }
-        Ok(args)
     }
 }

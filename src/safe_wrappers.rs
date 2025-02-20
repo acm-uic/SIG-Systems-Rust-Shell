@@ -1,8 +1,7 @@
 use libc::{c_char, pid_t};
 use std::{
-    ffi::{CStr, CString, OsString},
+    ffi::CString,
     io::{Error as IOError, ErrorKind as IOErrorKind, Result as IOResult},
-    os::unix::ffi::OsStringExt,
 };
 
 unsafe extern "C" {
@@ -102,38 +101,5 @@ pub(crate) fn wait() -> IOResult<WaitReturn> {
         };
 
         Ok(WaitReturn { pid, status })
-    }
-}
-
-pub(crate) fn getenv(var_id: impl AsRef<str>) -> IOResult<String> {
-    let c_var_id = CString::new(var_id.as_ref()).map_err(|_| {
-        IOError::new(
-            IOErrorKind::InvalidInput,
-            format!(
-                "Variable identifier {} had internal null byte",
-                var_id.as_ref()
-            ),
-        )
-    })?;
-
-    let getenv_ret = unsafe { libc::getenv(c_var_id.as_ptr()) };
-
-    if getenv_ret.is_null() {
-        Err(IOError::new(
-            IOErrorKind::NotFound,
-            format!("{} not found in environment", var_id.as_ref()),
-        ))
-    } else {
-        let bytes = unsafe { CStr::from_ptr(getenv_ret).to_bytes().to_vec() };
-
-        Ok(OsString::from_vec(bytes).into_string().map_err(|_| {
-            IOError::new(
-                IOErrorKind::InvalidData,
-                format!(
-                    "Value of {} contains bytes which are not valid UTF-8",
-                    var_id.as_ref()
-                ),
-            )
-        })?)
     }
 }
